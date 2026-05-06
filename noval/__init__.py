@@ -5,8 +5,8 @@ __uri__ = __url__
 __author__ = "Zachary Zhang"
 __email__ = "zlj19971222@outlook.com"
 
-__license__ = ""
-__copyright__ = "Copyright (c) 2022 Zachary"
+__license__ = "Apache-2.0"
+__copyright__ = "Copyright (c) 2022-2026 Zachary"
 
 from .const import VERSION
 

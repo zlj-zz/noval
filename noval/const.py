@@ -1,6 +1,6 @@
 import os
 
-VERSION = "2023.07.05"
+VERSION = "2026.05.06"
 
 NOVAL_DEBUG = os.environ.get("NOVAL_DEBUG", "") == "debug"
 
