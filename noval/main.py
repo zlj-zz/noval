@@ -30,16 +30,26 @@ def _entry(
     chapter_range: Optional[Tuple[int, int]] = None,
     split: Optional[int] = None,
     append_mode: bool = False,
+    search_mode: str = "bing",
 ) -> None:
     dl = Downloader(verify=False)
 
     # Search
+    from .searcher import get_searcher
+    from .const import SEARCH_LIST
+
     search_res = []
     with console.status(
         f"Search: [bold green]'{fiction_name}'...", spinner="shark"
     ) as _:
-        for part_search_res in dl.search_fiction(fiction_name):
-            search_res.extend(part_search_res)
+        if search_mode == "novel_site":
+            searcher = get_searcher(
+                search_mode, urls=SEARCH_LIST, extractor=dl._extractor,
+                get_html_fn=dl.get_html
+            )
+        else:
+            searcher = get_searcher(search_mode)
+        search_res = searcher.search(fiction_name)
 
     if not search_res:
         console.print("[red]Can't get search result page.")
@@ -109,9 +119,14 @@ def _entry(
 
 
 def entry(conf: Dict) -> None:
-    console.print(conf)
-    try:
-        _entry(**conf)
-        console.print("[green u]End ^.^")
-    except (KeyboardInterrupt, EOFError):
-        console.print("\n[yellow]Noval Manual Stop.")
+    if conf.get("non_interactive"):
+        console.print(conf)
+        try:
+            _entry(**conf)
+            console.print("[green u]End ^.^")
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[yellow]Noval Manual Stop.")
+    else:
+        from .tui import run_tui
+
+        run_tui()

@@ -6,21 +6,21 @@ downloading novels. Can be used to build their own applications. Build with
 `fastapi`(https://github.com/tiangolo/fastapi). Support quick start in terminal.
 
 Start:
-	python3 -m noval.api
+        python3 -m noval.api
 
 Support Api:
-	/fiction?name=[name]
-	Get fiction list.
+        /fiction?name=[name]
+        Get fiction list.
 
-	/chapters?key=[key]
-	Get the chapters list of key of one fiction.
+        /chapters?key=[key]
+        Get the chapters list of key of one fiction.
 
-	/crawl?key=[key]
-	Try to crawl a fiction according to the key.
+        /crawl?key=[key]
+        Try to crawl a fiction according to the key.
 
-	/crawl_status?key=[key]
-	Get current crawl progress of key.
+        /crawl_status?key=[key]
+        Get current crawl progress of key.
 
-	/download?key=[key]
-	Download the fiction from remote according to the key.
+        /download?key=[key]
+        Download the fiction from remote according to the key.
 """

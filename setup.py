@@ -68,7 +68,7 @@ setup(
         "Operating System :: Microsoft :: Windows",
     ],
     data_files=[("api", ["noval/api/index.html"])],
-    install_requires=["requests", "lxml", "numpy", "rich"],
+    install_requires=["requests", "lxml", "numpy", "rich", "textual", "cloudscraper"],
     entry_points="""
         [console_scripts]
         noval=noval.main:main

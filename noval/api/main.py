@@ -3,6 +3,7 @@ import os, threading
 from urllib.parse import urlencode
 
 from noval.downloader import Downloader
+from noval.searcher import DuckDuckGoSearcher
 from .utils import encode64, decode64, local_exist, key2file
 from .code import *
 
@@ -16,6 +17,7 @@ except ModuleNotFoundError:
 
 
 dr = Downloader(verify=False)
+_searcher = DuckDuckGoSearcher()
 app = FastAPI()
 
 # CORS allow any host.
@@ -53,13 +55,15 @@ def get_fictions(name: str):
 
     if name is not None:
         idx = 0
-        for each in dr.search_fiction(name):
-            for msg_string, url in each:
-                fname, dt, info = msg_string.split("|")
-                key = encodekey(fname, url)
+        for msg_string, url in _searcher.search(name):
+            parts = msg_string.split("|")
+            fname = parts[0] if parts else "Unknown"
+            dt = parts[1] if len(parts) > 1 else ""
+            info = parts[2] if len(parts) > 2 else ""
+            key = encodekey(fname, url)
 
-                data[idx] = {"name": fname, "date": dt, "info": info, "key": key}
-                idx += 1
+            data[idx] = {"name": fname, "date": dt, "info": info, "key": key}
+            idx += 1
 
     return {"data": data}
 

@@ -11,7 +11,15 @@ SEARCH_LIST = [
     # "https://www.feiyanqing123.com/search/{0}",
 ]
 
-DETAIL_KEYWORD = ["在线阅读"]
+DETAIL_KEYWORD = [
+    "在线阅读",
+    "章节目录",
+    "目录",
+    "查看目录",
+    "点击阅读",
+    "开始阅读",
+    "阅读全文",
+]
 
 HIGH_WEIGHT_KEYWORD = ["content", "article"]
 

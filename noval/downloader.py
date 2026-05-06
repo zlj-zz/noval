@@ -1,13 +1,21 @@
-from typing import Dict, List, Literal, Optional, Sequence, Tuple, Generator
+from typing import Dict, Generator, List, Literal, Optional, Sequence, Tuple
 import time
 import textwrap
 import urllib3
 
 from .extractor import Extractor
-from .const import DEFAULT_HTM, SEARCH_LIST, HEADERS
+from .const import HEADERS, DEFAULT_HTM
 
 import requests
+import logging
 
+# 诊断日志
+logger = logging.getLogger("noval.downloader")
+logger.setLevel(logging.DEBUG)
+if not logger.handlers:
+    _fh = logging.FileHandler("/tmp/noval_download.log", mode="a")
+    _fh.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+    logger.addHandler(_fh)
 
 class DownloaderError(Exception):
     """Error class of ~Downloader."""
@@ -24,11 +32,8 @@ class Downloader:
         retry: int = 5,
         encoding: str = "utf-8",
         verify: bool = True,
-        urls: Optional[str] = None,
         extractor_class: Sequence[Extractor] = Extractor,
     ) -> None:
-        if urls is None:
-            urls = []
         self.timeout = timeout
         self.retry = retry
         self.encoding = encoding
@@ -36,8 +41,8 @@ class Downloader:
         if not verify:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-        self._search_list = [*SEARCH_LIST, *urls]
         self._extractor: Extractor = extractor_class()
+        self._scraper: requests.Session = requests.Session()
 
     #########
     # tools
@@ -50,14 +55,16 @@ class Downloader:
         data: Optional[Dict] = None,
     ) -> Tuple[str, str]:
         html, true_url = "", ""
+        logger.debug(f"[GET] start {url} retry={retry}")
+        t0 = time.time()
 
         try:
             if mode == "get":
-                resp = requests.get(
+                resp = self._scraper.get(
                     url, timeout=self.timeout, verify=self.verify, headers=HEADERS
                 )
             elif mode == "post":
-                resp = requests.post(
+                resp = self._scraper.post(
                     url, data, timeout=self.timeout, verify=self.verify, headers=HEADERS
                 )
             else:
@@ -68,16 +75,30 @@ class Downloader:
             requests.exceptions.ConnectTimeout,
             requests.exceptions.ConnectionError,
             requests.exceptions.ReadTimeout,
-        ):
-            # TODO: may header alive-keep
+        ) as exc:
+            logger.debug(f"[GET] timeout/error {url} {type(exc).__name__}")
             if retry > 0:
                 return self._get_html(url, retry - 1)
         except requests.exceptions.SSLError:
             raise DownloaderError(
                 "Get SSLError, should set `verify` to False."
             ) from None
+        except requests.exceptions.RequestException as exc:
+            logger.debug(f"[GET] request error {url} {type(exc).__name__}: {exc}")
         else:
-            html = resp.content.decode(self.encoding)
+            elapsed = time.time() - t0
+            logger.debug(
+                f"[GET] done {url} status={resp.status_code} len={len(resp.content)} t={elapsed:.2f}s"
+            )
+            # 尝试多种编码解码，适配中文站点常见的 gbk/gb2312
+            for enc in (self.encoding, "utf-8", "gbk", "gb2312", "gb18030", "big5"):
+                try:
+                    html = resp.content.decode(enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                html = resp.content.decode(self.encoding, errors="replace")
             true_url = resp.url
 
         return html, true_url
@@ -98,13 +119,6 @@ class Downloader:
     ########
     # step
     ########
-    def search_fiction(self, name: str) -> Generator[List, None, None]:
-        """Yield result list of each search url."""
-
-        for search_url in self._search_list:
-            html, _root_url = self.get_html(search_url.format(name))
-            yield self._extractor.extract_search(html or DEFAULT_HTM, name, search_url)
-
     def get_chapters(self, next_url: str) -> List:
         """Return a chapter list with name and url."""
 

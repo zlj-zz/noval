@@ -143,7 +143,9 @@ def calc_text_density(element: HtmlElement) -> float:
 def count_punctuation_num(text: str) -> int:
     """计算文字中符号的个数."""
 
-    return sum(char in """！，。？、；：“”‘’《》「」【】%（）,.?:;'"!%()""" for char in text)
+    return sum(
+        char in """！，。？、；：“”‘’《》「」【】%（）,.?:;'"!%()""" for char in text
+    )
 
 
 def calc_sbdi(text: str, ti: int, lti: int) -> float:
@@ -296,7 +298,7 @@ class Extractor:
             remove_flag = 0
             for i in target_ul:
                 if i.tag == sp:
-                    remove_flag = 1 if sp_text in i.text else 0
+                    remove_flag = 1 if sp_text in (i.text or "") else 0
 
                 if remove_flag == 1 and i.tag == child:
                     target_ul.remove(i)
