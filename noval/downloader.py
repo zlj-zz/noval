@@ -17,6 +17,7 @@ if not logger.handlers:
     _fh.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     logger.addHandler(_fh)
 
+
 class DownloaderError(Exception):
     """Error class of ~Downloader."""
 

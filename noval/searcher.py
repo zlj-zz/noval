@@ -144,8 +144,11 @@ class BingSearcher(WebSearcher):
                     pass
             try:
                 resp = requests.get(
-                    href, headers=self.HEADERS, timeout=5,
-                    allow_redirects=True, stream=True,
+                    href,
+                    headers=self.HEADERS,
+                    timeout=5,
+                    allow_redirects=True,
+                    stream=True,
                 )
                 resp.close()
                 return resp.url
@@ -187,8 +190,11 @@ class DuckDuckGoSearcher(WebSearcher):
                 return parse.unquote(query["uddg"][0])
             try:
                 resp = requests.get(
-                    href, headers=self.HEADERS, timeout=5,
-                    allow_redirects=True, stream=True,
+                    href,
+                    headers=self.HEADERS,
+                    timeout=5,
+                    allow_redirects=True,
+                    stream=True,
                 )
                 resp.close()
                 return resp.url

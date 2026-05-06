@@ -44,8 +44,10 @@ def _entry(
     ) as _:
         if search_mode == "novel_site":
             searcher = get_searcher(
-                search_mode, urls=SEARCH_LIST, extractor=dl._extractor,
-                get_html_fn=dl.get_html
+                search_mode,
+                urls=SEARCH_LIST,
+                extractor=dl._extractor,
+                get_html_fn=dl.get_html,
             )
         else:
             searcher = get_searcher(search_mode)

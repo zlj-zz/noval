@@ -234,7 +234,7 @@ class RangeInputScreen(Screen):
 
 
 class DownloadScreen(Screen):
-    """下载页面：进度条 + 日志输出"""
+    """下载页面：进度条 + 日志输出 + 取消按钮"""
 
     def __init__(
         self,
@@ -245,6 +245,7 @@ class DownloadScreen(Screen):
         self.fiction_name = fiction_name
         self.url = url
         self.chapters = chapters
+        self._cancel_event = threading.Event()
         super().__init__()
 
     def compose(self) -> ComposeResult:
@@ -256,11 +257,12 @@ class DownloadScreen(Screen):
                 yield ProgressBar(total=len(self.chapters), id="download-progress")
                 yield Static("准备下载...", id="download-status")
                 yield Static("", id="download-log")
-                yield Button("返回", id="back-btn")
+                with Horizontal(id="download-actions"):
+                    yield Button("取消下载", id="cancel-btn", variant="error")
+                    yield Button("返回", id="back-btn")
         yield Footer()
 
     def on_mount(self) -> None:
-        # 用原生 threading.Thread 启动下载，完全绕过 Textual worker 生命周期管理
         self._thread = threading.Thread(target=self._do_download, daemon=True)
         self._thread.start()
 
@@ -273,11 +275,11 @@ class DownloadScreen(Screen):
             fh.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
             logger.addHandler(fh)
 
-        # 提前捕获 app 引用，screen 被 pop 后 self.app 会抛 NoActiveAppError
         app = self.app
         fiction_name = self.fiction_name
         chapters = self.chapters
         url = self.url
+        cancel = self._cancel_event
 
         dl = Downloader(verify=False)
         save_dir = config.save_dir
@@ -287,16 +289,14 @@ class DownloadScreen(Screen):
         dl.clear(file_path)
         logger.debug(f"[DL] start {fiction_name} chapters={len(chapters)}")
 
-        # 直接在后台线程更新 app 状态（dict 操作是 GIL 保护的，线程安全）
         app.active_downloads[fiction_name] = {
             "total": len(chapters),
             "current": 0,
             "status": "downloading",
+            "cancel_event": cancel,
         }
 
         def _ui_update(widget_id: str, method: str, *args) -> None:
-            """通过 call_from_thread 在主线程执行 UI 更新，失败静默忽略."""
-
             def _do():
                 try:
                     widget = self.query_one(widget_id)
@@ -311,6 +311,14 @@ class DownloadScreen(Screen):
 
         try:
             for idx, (chapter_name, url) in enumerate(chapters):
+                if cancel.is_set():
+                    logger.debug(
+                        f"[DL] cancelled {fiction_name} at {idx}/{len(chapters)}"
+                    )
+                    _ui_update("#download-status", "update", "下载已取消")
+                    app.active_downloads.pop(fiction_name, None)
+                    return
+
                 logger.debug(f"[DL] chapter {idx+1}/{len(chapters)} {chapter_name}")
                 app.active_downloads[fiction_name]["current"] = idx + 1
 
@@ -368,6 +376,10 @@ class DownloadScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "back-btn":
             self.app.pop_screen()
+        elif event.button.id == "cancel-btn":
+            self._cancel_event.set()
+            self.query_one("#cancel-btn", Button).disabled = True
+            self.query_one("#download-status", Static).update("正在取消...")
 
 
 class HistoryScreen(Screen):
@@ -471,6 +483,9 @@ class DownloadsScreen(Screen):
             yield Static("📥 后台下载", id="downloads-title")
             yield DataTable(id="downloads-table")
             with Horizontal(id="downloads-actions"):
+                yield Button(
+                    "取消选中", id="cancel-btn", disabled=True, variant="error"
+                )
                 yield Button("返回", id="back-btn")
         yield Footer()
 
@@ -500,9 +515,31 @@ class DownloadsScreen(Screen):
             table.add_row(name, progress, status)
         table.disabled = False
 
+    def on_data_table_row_selected(self, event) -> None:
+        self.query_one("#cancel-btn", Button).disabled = False
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "back-btn":
             self.app.switch_screen("main")
+        elif event.button.id == "cancel-btn":
+            table = self.query_one("#downloads-table", DataTable)
+            cursor = table.cursor_row
+            if cursor is None:
+                self.notify("请先选中一个下载任务", severity="warning")
+                return
+            rows = list(self.app.active_downloads.keys())
+            if cursor < 0 or cursor >= len(rows):
+                return
+            name = rows[cursor]
+            info = self.app.active_downloads.get(name)
+            if info:
+                event = info.get("cancel_event")
+                if event:
+                    event.set()
+                self.app.active_downloads.pop(name, None)
+            self._refresh_table()
+            self.query_one("#cancel-btn", Button).disabled = True
+            self.notify(f"《{name}》已取消")
 
 
 class MainScreen(Screen):
@@ -559,7 +596,6 @@ class NovalApp(App):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.active_downloads: Dict[str, dict] = {}
-
 
     CSS = """
     /* ---------- 基础配色 (Tokyo Night 风格暗色主题) ---------- */
